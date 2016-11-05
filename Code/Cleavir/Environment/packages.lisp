@@ -36,6 +36,8 @@
    #:tag-info
    #:optimize-info
    #:optimize-qualities
+   #:&rest-equivalents
+   #:allowed-lambda-list-keywords
    #:global-environment
    #:name
    #:identity

@@ -11,5 +11,6 @@
    (:file "augmentation-functions")
    (:file "default-augmentation-classes")
    (:file "optimize-qualities")
+   (:file "lambda-lists")
    (:file "default-info-methods")
    (:file "eval")))

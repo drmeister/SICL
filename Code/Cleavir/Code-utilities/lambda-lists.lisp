@@ -88,6 +88,16 @@
     (&allow-other-keys 0 0)
     (&aux 0 nil)))
 
+(defun lambda-list-position (keyword rests)
+  (position (if (find keyword rests)
+		'&rest
+		keyword)
+	    *lambda-list-keywords* :key #'car))
+
+(defun lambda-list-arities (keyword rests)
+  (cdr (assoc (if (find keyword rests) '&rest keyword)
+	      *lambda-list-keywords*)))
+
 (defun potential-lambda-list-keyword-p (object)
   (and (symbolp object)
        (plusp (length (symbol-name object)))
@@ -141,7 +151,7 @@
 ;;;
 ;;;  * We do not check the nature of the arguments to the lambda list
 ;;;    keywords.  The parser for each type of lambda list must do that. 
-(defun check-lambda-list-keywords (lambda-list keywords)
+(defun check-lambda-list-keywords (lambda-list keywords rests)
   ;; We assume that KEYWORDS is a subset of LAMBDA-LIST-KEYWORDS, in
   ;; other words that we are given only valid lambda list keywords as
   ;; defined by the system.
@@ -189,7 +199,7 @@
 	       (error 'multiple-occurrences-of-lambda-list-keyword
 		      :form lambda-list
 		      :keyword keyword)))
-    (when (> (+ (count '&body to-process) (count '&rest to-process)) 1)
+    (when (> (count-if (lambda (e) (member e rests)) to-process) 1)
       (error 'both-rest-and-body-occur-in-lambda-list
 	     :form lambda-list))
     ;; Check the order of keywords.
@@ -197,8 +207,8 @@
 	  until (null (cdr rem))
 	  do (when (and (not (eq (car rem) '&environment))
 			(not (eq (cadr rem) '&environment))
-			(> (position (car rem) *lambda-list-keywords* :key #'car)
-			   (position (cadr rem) *lambda-list-keywords* :key #'car)))
+			(> (lambda-list-position (car rem) rests)
+			   (lambda-list-position (cadr rem) rests)))
 	       (error 'incorrect-keyword-order
 		      :form lambda-list
 		      :keyword1 (car rem)
@@ -209,7 +219,7 @@
 		 (when (zerop number-of-args)
 		   (error 'whole-must-be-followed-by-variable
 			  :code lambda-list))
-		 (let ((arities (cdr (assoc keyword *lambda-list-keywords*))))
+		 (let ((arities (lambda-list-arities keyword rests)))
 		   (when (or (< number-of-args (car arities))
 			     (and (not (null (cadr arities)))
 				  (> number-of-args (cadr arities))))
@@ -269,7 +279,8 @@
    (%rest-body :initform :none :initarg :rest-body :accessor rest-body)
    ;; The name of the &rest keyword found in the lambda list.
    ;; Either:
-   ;;  * &rest or body
+   ;;  * &rest or &body
+   ;;  * NIL, meaning it's from a dotted list
    ;;  * something implementation-defined
    (%rest-name :initform '&rest :initarg :rest-name :accessor rest-name)
    ;; Either:
@@ -290,7 +301,7 @@
 (defun list-has-keyword-p (list)
   (loop for rest = list then (cdr rest)
 	while (consp rest)
-	when (member (car rest) *lambda-list-keywords* :key #'car)
+	when (member (car rest) lambda-list-keywords :key #'car)
 	  return t))
 
 ;;; We only check that the tree doesn't have any illegal atoms in it.
@@ -726,13 +737,12 @@
 	(t
 	 (values :none positions))))
 
-(defun parse-rest/body (lambda-list positions)
+(defun parse-rest/body (lambda-list positions rests)
   (cond ((and
 	  ;; there is a keyword yet to be processed.
 	  (not (null (cdr positions)))
 	  ;; that keyword is &environment.
-	  (or (eq (elt lambda-list (car positions)) '&rest)
-	      (eq (elt lambda-list (car positions)) '&body)))
+	  (member (elt lambda-list (car positions)) rests))
 	 ;; The arity has already been checked so we know there is
 	 ;; something after it, but we don't know what.
 	 (let ((arg (elt lambda-list (1+ (car positions)))))
@@ -774,219 +784,82 @@
 	when (member (car rest) allowed)
 	  collect i))
 
-(defun parse-ordinary-lambda-list (lambda-list)
-  (let ((allowed '(&optional &rest &key &allow-other-keys &aux)))
-    (check-lambda-list-proper lambda-list 'parse-ordinary-lambda-list)
-    (check-lambda-list-keywords lambda-list allowed)
-    (let ((positions (compute-keyword-positions lambda-list allowed))
-	  (result (make-instance 'lambda-list)))
-      (setf (required result)
-	    (parse-all-required
-	     lambda-list 0 (car positions) #'parse-ordinary-required))
-      (setf (values (optionals result) positions)
-	    (parse-all-optionals
-	     lambda-list positions #'parse-ordinary-optional))
-      (setf (values (rest-body result) positions (rest-name result))
-	    (parse-rest/body lambda-list positions))
-      (setf (values (keys result) positions)
-	    (parse-all-keys
-	     lambda-list positions #'parse-ordinary-key))
-      (setf (values (allow-other-keys result) positions)
-	    (parse-allow-other-keys lambda-list positions))
-      (setf (values (aux result) positions)
-	    (parse-all-aux lambda-list positions))
-      ;; We should have run out of parameters now.
-      (unless (null (cdr positions))
-	(error "something is seriously wrong here"))
-      result)))
+(defun parse-ordinary-lambda-list (lambda-list rests allowed)
+  (check-lambda-list-proper lambda-list 'parse-ordinary-lambda-list)
+  (check-lambda-list-keywords lambda-list allowed rests)
+  (let ((positions (compute-keyword-positions lambda-list allowed))
+	(result (make-instance 'lambda-list)))
+    (setf (required result)
+	  (parse-all-required
+	   lambda-list 0 (car positions) #'parse-ordinary-required))
+    (setf (values (optionals result) positions)
+	  (parse-all-optionals
+	   lambda-list positions #'parse-ordinary-optional))
+    (setf (values (rest-body result) positions (rest-name result))
+	  (parse-rest/body lambda-list positions rests))
+    (setf (values (keys result) positions)
+	  (parse-all-keys
+	   lambda-list positions #'parse-ordinary-key))
+    (setf (values (allow-other-keys result) positions)
+	  (parse-allow-other-keys lambda-list positions))
+    (setf (values (aux result) positions)
+	  (parse-all-aux lambda-list positions))
+    ;; We should have run out of parameters now.
+    (unless (null (cdr positions))
+      (error "something is seriously wrong here"))
+    result))
 	
-(defun parse-generic-function-lambda-list (lambda-list)
-  (let ((allowed '(&optional &rest &key &allow-other-keys)))
-    (check-lambda-list-proper lambda-list 'parse-generic-function-lambda-list)
-    (check-lambda-list-keywords lambda-list allowed)
-    (let ((positions (compute-keyword-positions lambda-list allowed))
-	  (result (make-instance 'lambda-list)))
-      (setf (required result)
-	    (parse-all-required
-	     lambda-list 0 (car positions) #'parse-ordinary-required))
-      (setf (values (optionals result) positions)
-	    (parse-all-optionals
-	     lambda-list positions #'parse-defgeneric-optional))
-      (setf (values (rest-body result) positions (rest-name result))
-	    (parse-rest/body lambda-list positions))
-      (setf (values (keys result) positions)
-	    (parse-all-keys
-	     lambda-list positions #'parse-defgeneric-key))
-      (setf (values (allow-other-keys result) positions)
-	    (parse-allow-other-keys lambda-list positions))
-      ;; We should have run out of parameters now.
-      (unless (null (cdr positions))
-	(error "something is seriously wrong here"))
-      result)))
-	
-(defun parse-specialized-lambda-list (lambda-list)
-  (let ((allowed '(&optional &rest &key &allow-other-keys &aux)))
-    (check-lambda-list-proper lambda-list 'parse-specialized-lambda-list)
-    (check-lambda-list-keywords lambda-list allowed)
-    (let ((positions (compute-keyword-positions lambda-list allowed))
-	  (result (make-instance 'lambda-list)))
-      (setf (required result)
-	    (parse-all-required
-	     lambda-list 0 (car positions) #'parse-specialized-required))
-      (setf (values (optionals result) positions)
-	    (parse-all-optionals
-	     lambda-list positions #'parse-ordinary-optional))
-      (setf (values (rest-body result) positions (rest-name result))
-	    (parse-rest/body lambda-list positions))
-      (setf (values (keys result) positions)
-	    (parse-all-keys
-	     lambda-list positions #'parse-ordinary-key))
-      (setf (values (allow-other-keys result) positions)
-	    (parse-allow-other-keys lambda-list positions))
-      (setf (values (aux result) positions)
-	    (parse-all-aux lambda-list positions))
-      ;; We should have run out of parameters now.
-      (unless (null (cdr positions))
-	(error "something is seriously wrong here"))
-      result)))
-	
-(defun parse-macro-lambda-list (lambda-list)
-  (multiple-value-bind (length structure) (list-structure lambda-list)
-    (when (eq structure :circular)
-      (error 'lambda-list-must-not-be-circular
-	     :code lambda-list))
-    (if (eq structure :dotted)
-	(progn
-	  (when (zerop length)
-	    (error 'lambda-list-must-be-list
-		   :code lambda-list))
-	  (let ((allowed '(&whole &environment &optional)))
-	    (check-lambda-list-keywords lambda-list allowed)
-	    (let ((positions (compute-keyword-positions lambda-list allowed))
-		  (result (make-instance 'lambda-list)))
-	      (if (eq (car lambda-list) '&whole)
-		  (progn
-		    (setf (values (whole result) positions)
-			  (parse-whole lambda-list positions))
-		    (if (eq (caddr lambda-list) '&environment)
-			(progn
-			  (setf (values (environment result) positions)
-				(parse-environment lambda-list positions))
-			  (setf (required result)
-				(parse-all-required lambda-list
-						    4 (car positions)
-						    #'parse-pattern)))
-			(setf (required result)
-			      (parse-all-required lambda-list
-						  2 (car positions)
-						  #'parse-pattern))))
-		  (if (eq (car lambda-list) '&environment)
-		      (progn 
-			(setf (values (environment result) positions)
-			      (parse-environment lambda-list positions))
-			(setf (required result)
-			      (parse-all-required lambda-list
-						  2 (car positions)
-						  #'parse-pattern)))
-		      (setf (required result)
-			    (parse-all-required lambda-list
-						0 (car positions)
-						#'parse-pattern))))
-	      ;; The environment may follow the required.
-	      (when (eq (environment result) :none)
-		(setf (values (environment result) positions)
-		      (parse-environment lambda-list positions)))
-	      (setf (values (optionals result) positions)
-		    (parse-all-optionals
-		     lambda-list positions #'parse-destructuring-optional))
-	      ;; The environment may follow the optionals.
-	      (when (eq (environment result) :none)
-		(setf (values (environment result) positions)
-		      (parse-environment lambda-list positions)))
-	      ;; We should have run out of parameters now.
-	      (unless (null (cdr positions))
-		(error "something is seriously wrong here"))
-	      ;; All that remains is to deal with the dotted end
-	      ;; of the list.
-	      (let ((rest (cdr (last lambda-list))))
-		(unless (and (symbolp rest)
-			     (not (constantp rest)))
-		  (error 'atomic-lambda-list-tail-must-be-variable
-			 :code lambda-list))
-		(setf (rest-body result) rest))
-	      result)))
-	(progn
-	  (let ((allowed '(&whole &environment &optional &rest &body
-			   &key &allow-other-keys &aux)))
-	    (check-lambda-list-keywords lambda-list allowed)
-	    (let ((positions (compute-keyword-positions lambda-list allowed))
-		  (result (make-instance 'lambda-list)))
-	      (if (eq (car lambda-list) '&whole)
-		  (progn
-		    (setf (values (whole result) positions)
-			  (parse-whole lambda-list positions))
-		    (if (eq (caddr lambda-list) '&environment)
-			(progn
-			  (setf (values (environment result) positions)
-				(parse-environment lambda-list positions))
-			  (setf (required result)
-				(parse-all-required lambda-list
-						    4 (car positions)
-						    #'parse-pattern)))
-			(setf (required result)
-			      (parse-all-required lambda-list
-						  2 (car positions)
-						  #'parse-pattern))))
-		  (if (eq (car lambda-list) '&environment)
-		      (progn 
-			(setf (values (environment result) positions)
-			      (parse-environment lambda-list positions))
-			(setf (required result)
-			      (parse-all-required lambda-list
-						  2 (car positions)
-						  #'parse-pattern)))
-		      (setf (required result)
-			    (parse-all-required lambda-list
-						0 (car positions)
-						#'parse-pattern))))
-	      ;; The environment may follow the required.
-	      (when (eq (environment result) :none)
-		(setf (values (environment result) positions)
-		      (parse-environment lambda-list positions)))
-	      (setf (values (optionals result) positions)
-		    (parse-all-optionals
-		     lambda-list positions #'parse-destructuring-optional))
-	      ;; The environment may follow the optionals.
-	      (when (eq (environment result) :none)
-		(setf (values (environment result) positions)
-		      (parse-environment lambda-list positions)))
-	      (setf (values (rest-body result) positions (rest-name result))
-		    (parse-rest/body lambda-list positions))
-	      ;; The environment may follow the rest/body.
-	      (when (eq (environment result) :none)
-		(setf (values (environment result) positions)
-		      (parse-environment lambda-list positions)))
-	      (setf (values (keys result) positions)
-		    (parse-all-keys
-		     lambda-list positions #'parse-destructuring-key))
-	      (setf (values (allow-other-keys result) positions)
-		    (parse-allow-other-keys lambda-list positions))
-	      ;; The environment may follow the keys.
-	      (when (eq (environment result) :none)
-		(setf (values (environment result) positions)
-		      (parse-environment lambda-list positions)))
-	      (setf (values (aux result) positions)
-		    (parse-all-aux lambda-list positions))
-	      ;; The environment may follow the aux.
-	      (when (eq (environment result) :none)
-		(setf (values (environment result) positions)
-		      (parse-environment lambda-list positions)))
-	      ;; We should have run out of parameters now.
-	      (unless (null (cdr positions))
-		(error "something is seriously wrong here"))
-	      result))))))
+(defun parse-generic-function-lambda-list
+    (lambda-list rests allowed)
+  (check-lambda-list-proper lambda-list 'parse-generic-function-lambda-list)
+  (check-lambda-list-keywords lambda-list allowed rests)
+  (let ((positions (compute-keyword-positions lambda-list allowed))
+	(result (make-instance 'lambda-list)))
+    (setf (required result)
+	  (parse-all-required
+	   lambda-list 0 (car positions) #'parse-ordinary-required))
+    (setf (values (optionals result) positions)
+	  (parse-all-optionals
+	   lambda-list positions #'parse-defgeneric-optional))
+    (setf (values (rest-body result) positions (rest-name result))
+	  (parse-rest/body lambda-list positions rests))
+    (setf (values (keys result) positions)
+	  (parse-all-keys
+	   lambda-list positions #'parse-defgeneric-key))
+    (setf (values (allow-other-keys result) positions)
+	  (parse-allow-other-keys lambda-list positions))
+    ;; We should have run out of parameters now.
+    (unless (null (cdr positions))
+      (error "something is seriously wrong here"))
+    result))
 
-(defun parse-destructuring-lambda-list (lambda-list)
+(defun parse-specialized-lambda-list (lambda-list rests allowed)
+  (check-lambda-list-proper lambda-list 'parse-specialized-lambda-list)
+  (check-lambda-list-keywords lambda-list allowed rests)
+  (let ((positions (compute-keyword-positions lambda-list allowed))
+	(result (make-instance 'lambda-list)))
+    (setf (required result)
+	  (parse-all-required
+	   lambda-list 0 (car positions) #'parse-specialized-required))
+    (setf (values (optionals result) positions)
+	  (parse-all-optionals
+	   lambda-list positions #'parse-ordinary-optional))
+    (setf (values (rest-body result) positions (rest-name result))
+	  (parse-rest/body lambda-list positions rests))
+    (setf (values (keys result) positions)
+	  (parse-all-keys
+	   lambda-list positions #'parse-ordinary-key))
+    (setf (values (allow-other-keys result) positions)
+	  (parse-allow-other-keys lambda-list positions))
+    (setf (values (aux result) positions)
+	  (parse-all-aux lambda-list positions))
+    ;; We should have run out of parameters now.
+    (unless (null (cdr positions))
+      (error "something is seriously wrong here"))
+    result))
+	
+(defun parse-macro-lambda-list
+    (lambda-list rests allowed-dotted allowed-normal)
   (multiple-value-bind (length structure) (list-structure lambda-list)
     (when (eq structure :circular)
       (error 'lambda-list-must-not-be-circular
@@ -996,75 +869,209 @@
 	  (when (zerop length)
 	    (error 'lambda-list-must-be-list
 		   :code lambda-list))
-	  (let ((allowed '(&whole &optional)))
-	    (check-lambda-list-keywords lambda-list allowed)
-	    (let ((positions (compute-keyword-positions lambda-list allowed))
-		  (result (make-instance 'lambda-list)))
-	      (if (eq (car lambda-list) '&whole)
-		  (progn
-		    (setf (values (whole result) positions)
-			  (parse-whole lambda-list positions))
+	  (check-lambda-list-keywords lambda-list allowed-dotted rests)
+	  (let ((positions (compute-keyword-positions lambda-list allowed-dotted))
+		(result (make-instance 'lambda-list)))
+	    (if (eq (car lambda-list) '&whole)
+		(progn
+		  (setf (values (whole result) positions)
+			(parse-whole lambda-list positions))
+		  (if (eq (caddr lambda-list) '&environment)
+		      (progn
+			(setf (values (environment result) positions)
+			      (parse-environment lambda-list positions))
+			(setf (required result)
+			      (parse-all-required lambda-list
+						  4 (car positions)
+						  #'parse-pattern)))
+		      (setf (required result)
+			    (parse-all-required lambda-list
+						2 (car positions)
+						#'parse-pattern))))
+		(if (eq (car lambda-list) '&environment)
+		    (progn 
+		      (setf (values (environment result) positions)
+			    (parse-environment lambda-list positions))
+		      (setf (required result)
+			    (parse-all-required lambda-list
+						2 (car positions)
+						#'parse-pattern)))
 		    (setf (required result)
 			  (parse-all-required lambda-list
-					      2 (car positions)
-					      #'parse-pattern)))
-		  (setf (required result)
-			(parse-all-required lambda-list
-					    0 (car positions)
-					    #'parse-pattern)))
-	      (setf (values (optionals result) positions)
-		    (parse-all-optionals
-		     lambda-list positions #'parse-destructuring-optional))
-	      ;; We should have run out of parameters now.
-	      (unless (null (cdr positions))
-		(error "something is seriously wrong here"))
-	      ;; All that remains is to deal with the dotted end
-	      ;; of the list.
-	      (let ((rest (cdr (last lambda-list))))
-		(unless (and (symbolp rest)
-			     (not (constantp rest)))
-		  (error 'atomic-lambda-list-tail-must-be-variable
-			 :code lambda-list))
-		(setf (rest-body result) rest))
-	      result)))
+					      0 (car positions)
+					      #'parse-pattern))))
+	    ;; The environment may follow the required.
+	    (when (eq (environment result) :none)
+	      (setf (values (environment result) positions)
+		    (parse-environment lambda-list positions)))
+	    (setf (values (optionals result) positions)
+		  (parse-all-optionals
+		   lambda-list positions #'parse-destructuring-optional))
+	    ;; The environment may follow the optionals.
+	    (when (eq (environment result) :none)
+	      (setf (values (environment result) positions)
+		    (parse-environment lambda-list positions)))
+	    ;; We should have run out of parameters now.
+	    (unless (null (cdr positions))
+	      (error "something is seriously wrong here"))
+	    ;; All that remains is to deal with the dotted end
+	    ;; of the list.
+	    (let ((rest (cdr (last lambda-list))))
+	      (unless (and (symbolp rest)
+			   (not (constantp rest)))
+		(error 'atomic-lambda-list-tail-must-be-variable
+		       :code lambda-list))
+	      (setf (rest-body result) rest
+		    (rest-name result) nil))
+	    result))
 	(progn
-	  (let ((allowed '(&whole &optional &rest &body
-			   &key &allow-other-keys &aux)))
-	    (check-lambda-list-keywords lambda-list allowed)
-	    (let ((positions (compute-keyword-positions lambda-list allowed))
-		  (result (make-instance 'lambda-list)))
-	      (if (eq (car lambda-list) '&whole)
-		  (progn
-		    (setf (values (whole result) positions)
-			  (parse-whole lambda-list positions))
+	  (check-lambda-list-keywords lambda-list allowed-normal rests)
+	  (let ((positions (compute-keyword-positions lambda-list allowed-normal))
+		(result (make-instance 'lambda-list)))
+	    (if (eq (car lambda-list) '&whole)
+		(progn
+		  (setf (values (whole result) positions)
+			(parse-whole lambda-list positions))
+		  (if (eq (caddr lambda-list) '&environment)
+		      (progn
+			(setf (values (environment result) positions)
+			      (parse-environment lambda-list positions))
+			(setf (required result)
+			      (parse-all-required lambda-list
+						  4 (car positions)
+						  #'parse-pattern)))
+		      (setf (required result)
+			    (parse-all-required lambda-list
+						2 (car positions)
+						#'parse-pattern))))
+		(if (eq (car lambda-list) '&environment)
+		    (progn 
+		      (setf (values (environment result) positions)
+			    (parse-environment lambda-list positions))
+		      (setf (required result)
+			    (parse-all-required lambda-list
+						2 (car positions)
+						#'parse-pattern)))
 		    (setf (required result)
 			  (parse-all-required lambda-list
-					      2 (car positions)
-					      #'parse-pattern)))
+					      0 (car positions)
+					      #'parse-pattern))))
+	    ;; The environment may follow the required.
+	    (when (eq (environment result) :none)
+	      (setf (values (environment result) positions)
+		    (parse-environment lambda-list positions)))
+	    (setf (values (optionals result) positions)
+		  (parse-all-optionals
+		   lambda-list positions #'parse-destructuring-optional))
+	    ;; The environment may follow the optionals.
+	    (when (eq (environment result) :none)
+	      (setf (values (environment result) positions)
+		    (parse-environment lambda-list positions)))
+	    (setf (values (rest-body result) positions (rest-name result))
+		  (parse-rest/body lambda-list positions rests))
+	    ;; The environment may follow the rest/body.
+	    (when (eq (environment result) :none)
+	      (setf (values (environment result) positions)
+		    (parse-environment lambda-list positions)))
+	    (setf (values (keys result) positions)
+		  (parse-all-keys
+		   lambda-list positions #'parse-destructuring-key))
+	    (setf (values (allow-other-keys result) positions)
+		  (parse-allow-other-keys lambda-list positions))
+	    ;; The environment may follow the keys.
+	    (when (eq (environment result) :none)
+	      (setf (values (environment result) positions)
+		    (parse-environment lambda-list positions)))
+	    (setf (values (aux result) positions)
+		  (parse-all-aux lambda-list positions))
+	    ;; The environment may follow the aux.
+	    (when (eq (environment result) :none)
+	      (setf (values (environment result) positions)
+		    (parse-environment lambda-list positions)))
+	    ;; We should have run out of parameters now.
+	    (unless (null (cdr positions))
+	      (error "something is seriously wrong here"))
+	    result)))))
+
+(defun parse-destructuring-lambda-list
+    (lambda-list rests allowed-dotted allowed-normal)
+  (multiple-value-bind (length structure) (list-structure lambda-list)
+    (when (eq structure :circular)
+      (error 'lambda-list-must-not-be-circular
+	     :code lambda-list))
+    (if (eq structure :dotted)
+	(progn
+	  (when (zerop length)
+	    (error 'lambda-list-must-be-list
+		   :code lambda-list))
+	  (check-lambda-list-keywords lambda-list allowed-dotted rests)
+	  (let ((positions (compute-keyword-positions lambda-list allowed-dotted))
+		(result (make-instance 'lambda-list)))
+	    (if (eq (car lambda-list) '&whole)
+		(progn
+		  (setf (values (whole result) positions)
+			(parse-whole lambda-list positions))
 		  (setf (required result)
 			(parse-all-required lambda-list
-					    0 (car positions)
+					    2 (car positions)
 					    #'parse-pattern)))
-	      (setf (values (optionals result) positions)
-		    (parse-all-optionals
-		     lambda-list positions #'parse-destructuring-optional))
-	      (setf (values (rest-body result) positions (rest-name result))
-		    (parse-rest/body lambda-list positions))
-	      (setf (values (keys result) positions)
-		    (parse-all-keys
-		     lambda-list positions #'parse-destructuring-key))
-	      (setf (values (allow-other-keys result) positions)
-		    (parse-allow-other-keys lambda-list positions))
-	      (setf (values (aux result) positions)
-		    (parse-all-aux lambda-list positions))
-	      ;; We should have run out of parameters now.
-	      (unless (null (cdr positions))
-		(error "something is seriously wrong here"))
-	      result))))))
+		(setf (required result)
+		      (parse-all-required lambda-list
+					  0 (car positions)
+					  #'parse-pattern)))
+	    (setf (values (optionals result) positions)
+		  (parse-all-optionals
+		   lambda-list positions #'parse-destructuring-optional))
+	    ;; We should have run out of parameters now.
+	    (unless (null (cdr positions))
+	      (error "something is seriously wrong here"))
+	    ;; All that remains is to deal with the dotted end
+	    ;; of the list.
+	    (let ((rest (cdr (last lambda-list))))
+	      (unless (and (symbolp rest)
+			   (not (constantp rest)))
+		(error 'atomic-lambda-list-tail-must-be-variable
+		       :code lambda-list))
+	      (setf (rest-body result) rest
+		    (rest-name result) rest))
+	    result))
+	(progn
+	  (check-lambda-list-keywords lambda-list allowed-normal rests)
+	  (let ((positions (compute-keyword-positions lambda-list allowed-normal))
+		(result (make-instance 'lambda-list)))
+	    (if (eq (car lambda-list) '&whole)
+		(progn
+		  (setf (values (whole result) positions)
+			(parse-whole lambda-list positions))
+		  (setf (required result)
+			(parse-all-required lambda-list
+					    2 (car positions)
+					    #'parse-pattern)))
+		(setf (required result)
+		      (parse-all-required lambda-list
+					  0 (car positions)
+					  #'parse-pattern)))
+	    (setf (values (optionals result) positions)
+		  (parse-all-optionals
+		   lambda-list positions #'parse-destructuring-optional))
+	    (setf (values (rest-body result) positions (rest-name result))
+		  (parse-rest/body lambda-list positions rests))
+	    (setf (values (keys result) positions)
+		  (parse-all-keys
+		   lambda-list positions #'parse-destructuring-key))
+	    (setf (values (allow-other-keys result) positions)
+		  (parse-allow-other-keys lambda-list positions))
+	    (setf (values (aux result) positions)
+		  (parse-all-aux lambda-list positions))
+	    ;; We should have run out of parameters now.
+	    (unless (null (cdr positions))
+	      (error "something is seriously wrong here"))
+	    result)))))
 
 ;;; FIXME: there is considerable code duplication between this one
 ;;; and the macro lambda list. 
-(defun parse-deftype-lambda-list  (lambda-list)
+(defun parse-deftype-lambda-list
+    (lambda-list rests allowed-dotted allowed-normal)
   (multiple-value-bind (length structure) (list-structure lambda-list)
     (when (eq structure :circular)
       (error 'lambda-list-must-not-be-circular
@@ -1076,9 +1083,8 @@
 	    (error 'lambda-list-must-be-list
 		   :signaler 'parse-deftype-lambda-list
 		   :code lambda-list))
-	  (let ((allowed '(&whole &environment &optional)))
-	    (check-lambda-list-keywords lambda-list allowed)
-	    (let ((positions (compute-keyword-positions lambda-list allowed))
+	    (check-lambda-list-keywords lambda-list allowed-dotted rests)
+	    (let ((positions (compute-keyword-positions lambda-list allowed-dotted))
 		  (result (make-instance 'lambda-list)))
 	      (if (eq (car lambda-list) '&whole)
 		  (progn
@@ -1129,147 +1135,143 @@
 			     (not (constantp rest)))
 		  (error 'atomic-lambda-list-tail-must-be-variable
 			 :code lambda-list))
-		(setf (rest-body result) rest))
-	      result)))
+		(setf (rest-body result) rest
+		      (rest-name result) nil))
+	      result))
 	(progn
-	  (let ((allowed '(&whole &environment &optional &rest &body
-			   &key &allow-other-keys &aux)))
-	    (check-lambda-list-keywords lambda-list allowed)
-	    (let ((positions (compute-keyword-positions lambda-list allowed))
-		  (result (make-instance 'lambda-list)))
-	      (if (eq (car lambda-list) '&whole)
-		  (progn
-		    (setf (values (whole result) positions)
-			  (parse-whole lambda-list positions))
-		    (if (eq (caddr lambda-list) '&environment)
-			(progn
-			  (setf (values (environment result) positions)
-				(parse-environment lambda-list positions))
-			  (setf (required result)
-				(parse-all-required lambda-list
-						    4 (car positions)
-						    #'parse-pattern)))
-			(setf (required result)
-			      (parse-all-required lambda-list
-						  2 (car positions)
-						  #'parse-pattern))))
-		  (if (eq (car lambda-list) '&environment)
-		      (progn 
+	  (check-lambda-list-keywords lambda-list allowed-normal rests)
+	  (let ((positions (compute-keyword-positions lambda-list allowed-normal))
+		(result (make-instance 'lambda-list)))
+	    (if (eq (car lambda-list) '&whole)
+		(progn
+		  (setf (values (whole result) positions)
+			(parse-whole lambda-list positions))
+		  (if (eq (caddr lambda-list) '&environment)
+		      (progn
 			(setf (values (environment result) positions)
 			      (parse-environment lambda-list positions))
 			(setf (required result)
 			      (parse-all-required lambda-list
-						  2 (car positions)
+						  4 (car positions)
 						  #'parse-pattern)))
 		      (setf (required result)
 			    (parse-all-required lambda-list
-						0 (car positions)
+						2 (car positions)
 						#'parse-pattern))))
-	      ;; The environment may follow the required.
-	      (when (eq (environment result) :none)
-		(setf (values (environment result) positions)
-		      (parse-environment lambda-list positions)))
-	      (setf (values (optionals result) positions)
-		    (parse-all-optionals
-		     lambda-list positions #'parse-deftype-optional))
-	      ;; The environment may follow the optionals.
-	      (when (eq (environment result) :none)
-		(setf (values (environment result) positions)
-		      (parse-environment lambda-list positions)))
-	      (setf (values (keys result) positions)
-		    (parse-all-keys
-		     lambda-list positions #'parse-deftype-key))
-	      (setf (values (allow-other-keys result) positions)
-		    (parse-allow-other-keys lambda-list positions))
-	      ;; The environment may follow the keys.
-	      (when (eq (environment result) :none)
-		(setf (values (environment result) positions)
-		      (parse-environment lambda-list positions)))
-	      (setf (values (aux result) positions)
-		    (parse-all-aux lambda-list positions))
-	      ;; The environment may follow the aux.
-	      (when (eq (environment result) :none)
-		(setf (values (environment result) positions)
-		      (parse-environment lambda-list positions)))
-	      ;; We should have run out of parameters now.
-	      (unless (null (cdr positions))
-		(error "something is seriously wrong here"))
-	      result))))))
+		(if (eq (car lambda-list) '&environment)
+		    (progn 
+		      (setf (values (environment result) positions)
+			    (parse-environment lambda-list positions))
+		      (setf (required result)
+			    (parse-all-required lambda-list
+						2 (car positions)
+						#'parse-pattern)))
+		    (setf (required result)
+			  (parse-all-required lambda-list
+					      0 (car positions)
+					      #'parse-pattern))))
+	    ;; The environment may follow the required.
+	    (when (eq (environment result) :none)
+	      (setf (values (environment result) positions)
+		    (parse-environment lambda-list positions)))
+	    (setf (values (optionals result) positions)
+		  (parse-all-optionals
+		   lambda-list positions #'parse-deftype-optional))
+	    ;; The environment may follow the optionals.
+	    (when (eq (environment result) :none)
+	      (setf (values (environment result) positions)
+		    (parse-environment lambda-list positions)))
+	    (setf (values (keys result) positions)
+		  (parse-all-keys
+		   lambda-list positions #'parse-deftype-key))
+	    (setf (values (allow-other-keys result) positions)
+		  (parse-allow-other-keys lambda-list positions))
+	    ;; The environment may follow the keys.
+	    (when (eq (environment result) :none)
+	      (setf (values (environment result) positions)
+		    (parse-environment lambda-list positions)))
+	    (setf (values (aux result) positions)
+		  (parse-all-aux lambda-list positions))
+	    ;; The environment may follow the aux.
+	    (when (eq (environment result) :none)
+	      (setf (values (environment result) positions)
+		    (parse-environment lambda-list positions)))
+	    ;; We should have run out of parameters now.
+	    (unless (null (cdr positions))
+	      (error "something is seriously wrong here"))
+	    result)))))
 
-(defun parse-defsetf-lambda-list (lambda-list)
-  (let ((allowed '(&optional &rest &key &allow-other-keys &environment)))
-    (check-lambda-list-proper lambda-list 'parse-defsetf-lambda-list)
-    (check-lambda-list-keywords lambda-list allowed)
-    (let ((positions (compute-keyword-positions lambda-list allowed))
-	  (result (make-instance 'lambda-list)))
-      ;; FIXME: check that if &environment occurs, then it is last.
-      (setf (required result)
-	    (parse-all-required
-	     lambda-list 0 (car positions) #'parse-ordinary-required))
-      (setf (values (optionals result) positions)
-	    (parse-all-optionals
-	     lambda-list positions #'parse-ordinary-optional))
-      (setf (values (rest-body result) positions (rest-name result))
-	    (parse-rest/body lambda-list positions))
-      (setf (values (keys result) positions)
-	    (parse-all-keys
-	     lambda-list positions #'parse-ordinary-key))
-      (setf (values (allow-other-keys result) positions)
-	    (parse-allow-other-keys lambda-list positions))
-      (setf (values (environment result) positions)
-	    (parse-environment lambda-list positions))
-      ;; We should have run out of parameters now.
-      (unless (null (cdr positions))
-	(error "something is seriously wrong here"))
-      result)))
-	
-(defun parse-define-modify-macro-lambda-list (lambda-list)
-  (let ((allowed '(&optional &rest)))
-    (check-lambda-list-proper lambda-list 'parse-define-modify-macro-lambda-list)
-    (check-lambda-list-keywords lambda-list allowed)
-    (let ((positions (compute-keyword-positions lambda-list allowed))
-	  (result (make-instance 'lambda-list)))
-      (setf (required result)
-	    (parse-all-required
-	     lambda-list 0 (car positions) #'parse-ordinary-required))
-      (setf (values (optionals result) positions)
-	    (parse-all-optionals
-	     lambda-list positions #'parse-ordinary-optional))
-      (setf (values (rest-body result) positions (rest-name result))
-	    (parse-rest/body lambda-list positions))
-      ;; We should have run out of parameters now.
-      (unless (null (cdr positions))
-	(error "something is seriously wrong here"))
-      result)))
+(defun parse-defsetf-lambda-list (lambda-list rests allowed)
+  (check-lambda-list-proper lambda-list 'parse-defsetf-lambda-list)
+  (check-lambda-list-keywords lambda-list allowed rests)
+  (let ((positions (compute-keyword-positions lambda-list allowed))
+	(result (make-instance 'lambda-list)))
+    ;; FIXME: check that if &environment occurs, then it is last.
+    (setf (required result)
+	  (parse-all-required
+	   lambda-list 0 (car positions) #'parse-ordinary-required))
+    (setf (values (optionals result) positions)
+	  (parse-all-optionals
+	   lambda-list positions #'parse-ordinary-optional))
+    (setf (values (rest-body result) positions (rest-name result))
+	  (parse-rest/body lambda-list positions rests))
+    (setf (values (keys result) positions)
+	  (parse-all-keys
+	   lambda-list positions #'parse-ordinary-key))
+    (setf (values (allow-other-keys result) positions)
+	  (parse-allow-other-keys lambda-list positions))
+    (setf (values (environment result) positions)
+	  (parse-environment lambda-list positions))
+    ;; We should have run out of parameters now.
+    (unless (null (cdr positions))
+      (error "something is seriously wrong here"))
+    result))
+
+(defun parse-define-modify-macro-lambda-list (lambda-list rests allowed)
+  (check-lambda-list-proper lambda-list 'parse-define-modify-macro-lambda-list)
+  (check-lambda-list-keywords lambda-list allowed rests)
+  (let ((positions (compute-keyword-positions lambda-list allowed))
+	(result (make-instance 'lambda-list)))
+    (setf (required result)
+	  (parse-all-required
+	   lambda-list 0 (car positions) #'parse-ordinary-required))
+    (setf (values (optionals result) positions)
+	  (parse-all-optionals
+	   lambda-list positions #'parse-ordinary-optional))
+    (setf (values (rest-body result) positions (rest-name result))
+	  (parse-rest/body lambda-list positions rests))
+    ;; We should have run out of parameters now.
+    (unless (null (cdr positions))
+      (error "something is seriously wrong here"))
+    result))
 
 (defun parse-define-method-combination-arguments-lambda-list
-    (lambda-list)
-  (let ((allowed '(&whole &optional &rest &key &allow-other-keys &aux)))
-    (check-lambda-list-proper
-     lambda-list
-     'parse-define-method-combination-arguments-lambda-list)
-    (check-lambda-list-keywords lambda-list allowed)
-    (let ((positions (compute-keyword-positions lambda-list allowed))
-	  (result (make-instance 'lambda-list)))
-      (setf (required result)
-	    (parse-all-required
-	     lambda-list 0 (car positions) #'parse-ordinary-required))
-      (setf (values (optionals result) positions)
-	    (parse-all-optionals
-	     lambda-list positions #'parse-ordinary-optional))
-      (setf (values (rest-body result) positions (rest-name result))
-	    (parse-rest/body lambda-list positions))
-      (setf (values (keys result) positions)
-	    (parse-all-keys
-	     lambda-list positions #'parse-ordinary-key))
-      (setf (values (allow-other-keys result) positions)
-	    (parse-allow-other-keys lambda-list positions))
-      (setf (values (aux result) positions)
-	    (parse-all-aux lambda-list positions))
-      ;; We should have run out of parameters now.
-      (unless (null (cdr positions))
-	(error "something is seriously wrong here"))
-      result)))
+    (lambda-list rests allowed)
+  (check-lambda-list-proper
+   lambda-list
+   'parse-define-method-combination-arguments-lambda-list)
+  (check-lambda-list-keywords lambda-list allowed rests)
+  (let ((positions (compute-keyword-positions lambda-list allowed))
+	(result (make-instance 'lambda-list)))
+    (setf (required result)
+	  (parse-all-required
+	   lambda-list 0 (car positions) #'parse-ordinary-required))
+    (setf (values (optionals result) positions)
+	  (parse-all-optionals
+	   lambda-list positions #'parse-ordinary-optional))
+    (setf (values (rest-body result) positions (rest-name result))
+	  (parse-rest/body lambda-list positions rests))
+    (setf (values (keys result) positions)
+	  (parse-all-keys
+	   lambda-list positions #'parse-ordinary-key))
+    (setf (values (allow-other-keys result) positions)
+	  (parse-allow-other-keys lambda-list positions))
+    (setf (values (aux result) positions)
+	  (parse-all-aux lambda-list positions))
+    ;; We should have run out of parameters now.
+    (unless (null (cdr positions))
+      (error "something is seriously wrong here"))
+    result))
 	
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
