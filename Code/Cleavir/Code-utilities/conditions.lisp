@@ -1,7 +1,8 @@
 (cl:in-package #:cleavir-code-utilities)
 
 (define-condition code-condition ()
-  ((%code :initarg :code :reader code)))
+  ((%code :initarg :code :reader code)
+   (%signaler :initarg :signaler :reader signaler)))
 
 (define-condition form-must-be-proper-list
     (program-error acclimation:condition)
