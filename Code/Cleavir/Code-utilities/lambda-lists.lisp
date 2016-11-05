@@ -267,6 +267,11 @@
    ;;  * :none, meaning &rest or &body was not given at all, or
    ;;  * a single pattern.
    (%rest-body :initform :none :initarg :rest-body :accessor rest-body)
+   ;; The name of the &rest keyword found in the lambda list.
+   ;; Either:
+   ;;  * &rest or body
+   ;;  * something implementation-defined
+   (%rest-name :initform '&rest :initarg :rest-name :accessor rest-name)
    ;; Either:
    ;;  * :none, meaning &key was not given at all,
    ;;  * a possibly empty list of &key entries.
@@ -735,9 +740,10 @@
 			(not (constantp arg)))
 	     (error 'rest/body-must-be-followed-by-variable
 		    :code lambda-list))
-	   (values arg (cdr positions))))
+	   (values arg (cdr positions)
+		   (elt lambda-list (car positions)))))
 	(t
-	 (values :none positions))))
+	 (values :none positions '&rest))))
 
 (defun parse-whole (lambda-list positions)
   (cond ((and
@@ -780,7 +786,7 @@
       (setf (values (optionals result) positions)
 	    (parse-all-optionals
 	     lambda-list positions #'parse-ordinary-optional))
-      (setf (values (rest-body result) positions)
+      (setf (values (rest-body result) positions (rest-name result))
 	    (parse-rest/body lambda-list positions))
       (setf (values (keys result) positions)
 	    (parse-all-keys
@@ -806,7 +812,7 @@
       (setf (values (optionals result) positions)
 	    (parse-all-optionals
 	     lambda-list positions #'parse-defgeneric-optional))
-      (setf (values (rest-body result) positions)
+      (setf (values (rest-body result) positions (rest-name result))
 	    (parse-rest/body lambda-list positions))
       (setf (values (keys result) positions)
 	    (parse-all-keys
@@ -830,7 +836,7 @@
       (setf (values (optionals result) positions)
 	    (parse-all-optionals
 	     lambda-list positions #'parse-ordinary-optional))
-      (setf (values (rest-body result) positions)
+      (setf (values (rest-body result) positions (rest-name result))
 	    (parse-rest/body lambda-list positions))
       (setf (values (keys result) positions)
 	    (parse-all-keys
@@ -954,7 +960,7 @@
 	      (when (eq (environment result) :none)
 		(setf (values (environment result) positions)
 		      (parse-environment lambda-list positions)))
-	      (setf (values (rest-body result) positions)
+	      (setf (values (rest-body result) positions (rest-name result))
 		    (parse-rest/body lambda-list positions))
 	      ;; The environment may follow the rest/body.
 	      (when (eq (environment result) :none)
@@ -1042,7 +1048,7 @@
 	      (setf (values (optionals result) positions)
 		    (parse-all-optionals
 		     lambda-list positions #'parse-destructuring-optional))
-	      (setf (values (rest-body result) positions)
+	      (setf (values (rest-body result) positions (rest-name result))
 		    (parse-rest/body lambda-list positions))
 	      (setf (values (keys result) positions)
 		    (parse-all-keys
@@ -1203,7 +1209,7 @@
       (setf (values (optionals result) positions)
 	    (parse-all-optionals
 	     lambda-list positions #'parse-ordinary-optional))
-      (setf (values (rest-body result) positions)
+      (setf (values (rest-body result) positions (rest-name result))
 	    (parse-rest/body lambda-list positions))
       (setf (values (keys result) positions)
 	    (parse-all-keys
@@ -1229,7 +1235,7 @@
       (setf (values (optionals result) positions)
 	    (parse-all-optionals
 	     lambda-list positions #'parse-ordinary-optional))
-      (setf (values (rest-body result) positions)
+      (setf (values (rest-body result) positions (rest-name result))
 	    (parse-rest/body lambda-list positions))
       ;; We should have run out of parameters now.
       (unless (null (cdr positions))
@@ -1251,7 +1257,7 @@
       (setf (values (optionals result) positions)
 	    (parse-all-optionals
 	     lambda-list positions #'parse-ordinary-optional))
-      (setf (values (rest-body result) positions)
+      (setf (values (rest-body result) positions (rest-name result))
 	    (parse-rest/body lambda-list positions))
       (setf (values (keys result) positions)
 	    (parse-all-keys
@@ -1436,6 +1442,7 @@
 	    :required (required method-lambda-list)
 	    :optionals (optionals method-lambda-list)
 	    :rest (rest-body method-lambda-list)
+	    :rest-name (rest-name method-lambda-list)
 	    :keys (if (eq (keys method-lambda-list) :none)
 		      :none
 		      '())))
@@ -1446,7 +1453,8 @@
 		   `(&optional ,@(optionals parsed-lambda-list)))
 	     ,@(if (eq (rest-body parsed-lambda-list) :none)
 		   '()
-		   `(&rest ,@(rest-body parsed-lambda-list)))
+		   `(,(rest-name parsed-lambda-list)
+		     ,@(rest-body parsed-lambda-list)))
 	     ,@(if (eq (keys parsed-lambda-list) :none)
 		   '()
 		   `(&key)))))
