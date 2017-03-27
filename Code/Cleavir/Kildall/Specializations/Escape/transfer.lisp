@@ -95,11 +95,23 @@
   (defharmless cleavir-ir:typeq-instruction)
   (defharmless cleavir-ir:eq-instruction))
 
-(cleavir-policy:define-cleavir-policy-quality trust-dynamic-extent
-    (member t nil)
-  t)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; Policy TRUST-DYNAMIC-EXTENT
+;;;
+;;; If this is T, then if Cleavir cannot prove the dynamic-extentness
+;;; of a variable, but it is declared DYNAMIC-EXTENT, it will mark
+;;; use that information to mark things as dynamically allocatable.
+;;; This is UNSAFE and improper declarations can cause memory faults.
+;;; If this is NIL, Cleavir will only mark things it can prove are
+;;; dynamically allocatable as such.
+;;; In either case, if Cleavir can prove something is NOT dynamically
+;;; allocatable, but it is declared as DYNAMIC-EXTENT, it will warn.
 
-(defmethod transfer
+(cleavir-policy:define-cleavir-policy-quality trust-dynamic-extent
+    boolean t)
+
+(defmethod cleavir-kildall:transfer
     ((s escape)
      (instruction cleavir-ir:dynamic-allocation-instruction))
   (let ((input (first (cleavir-ir:inputs instruction)))
