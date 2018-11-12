@@ -272,18 +272,13 @@ This function should not require an environment or system, but it unfortunately 
 	       else do (noinline
 			'not-enough-arguments-style-warning)
 	  else when (eq state '&optional)
-		 if arg-asts
-		   collect (cleavir-ast:make-setq-ast
-			    (second parameter)
-			    (first arg-asts))
-		   and collect (cleavir-ast:make-setq-ast
-				(first parameter)
-				(second parameter))
-		   and do (setf arg-asts (rest arg-asts))
-	         else
-		   collect (cleavir-ast:make-setq-ast
-			    (second parameter)
-			    (convert nil env system))
+                 ;; KLUDGE
+                 ;; Because we include the body code entirely,
+                 ;; we generate for &optional (x foo x-p) something like
+                 ;; (let-uninitialized (x) (setq x-p nil) (unless x-p (setq x foo)))
+                 ;; The never-taken branch of the now-pointless conditional
+                 ;; screws up my SSA stuff.
+                 do (return (noinline))
 	  else when (eq state '&rest)
 		 collect (cleavir-ast:make-setq-ast
 			  parameter (make-list-call arg-asts))
