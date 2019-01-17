@@ -41,6 +41,18 @@
   (loop for output in outputs
         collect (translate-output-for-copy output external-map internal-map stack)))
 
+(defgeneric patch-instruction (instruction copier)
+  (:method (instruction copier)
+    (declare (ignore instruction copier))))
+
+(defmethod patch-instruction ((instruction cleavir-ir:enclose-instruction) copier)
+  (setf (cleavir-ir:code instruction)
+        (funcall copier (cleavir-ir:code instruction))))
+
+(defmethod patch-instruction ((instruction cleavir-ir:unwind-instruction) copier)
+  (setf (cleavir-ir:destination instruction)
+        (funcall copier (cleavir-ir:destination instruction))))
+
 ;;; EXTERNAL-MAP is the mapping from inline.
 ;;; INTERNAL-MAP is a fresh mapping which is used only for internal locations.
 ;;; STACK is a list of ENTER-INSTRUCTIONS that we're in the middle of copying.
@@ -74,25 +86,20 @@
            (add-to-mapping *instruction-mapping* instruction copy))))
      enter)
     ;; Second loop: Loop over the copies doing hookups.
-    (flet ((maybe-replace (instruction)
-             (let ((copy (find-in-mapping *instruction-mapping* instruction)))
-               (or copy instruction))))
+    (labels ((maybe-replace (instruction)
+               (let ((copy (find-in-mapping *instruction-mapping* instruction)))
+                 (or copy instruction)))
+             (copier (instruction)
+               (if (typep instruction 'cleavir-ir:enter-instruction)
+                   (copy-function-recur instruction external-map internal-map stack)
+                   (maybe-replace instruction))))
       (loop for copy in copies
             do (setf (cleavir-ir:predecessors copy)
                      (mapcar #'maybe-replace (cleavir-ir:predecessors copy))
                      (cleavir-ir:successors copy)
                      (mapcar #'maybe-replace (cleavir-ir:successors copy)))
                (setf (gethash copy *instruction-ownerships*) *new-enter*)
-            do (typecase copy
-                 (cleavir-ir:enclose-instruction
-                  ;; We have to do this in the second loop so that any
-                  ;; UNWINDS in the inner function can be hooked up to copies.
-                  (setf (cleavir-ir:code copy)
-                        (copy-function-recur
-                         (cleavir-ir:code copy) external-map internal-map stack)))
-                 (cleavir-ir:unwind-instruction
-                  (setf (cleavir-ir:destination copy)
-                        (maybe-replace (cleavir-ir:destination copy)))))))
+            do (patch-instruction copy #'copier)))
     *new-enter*))
 
 ;;; Returns a copy of a HIR function.

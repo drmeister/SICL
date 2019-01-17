@@ -64,6 +64,6 @@
         for inline = (one-potential-inline initial-instruction)
         until (null inline)
         do (destructuring-bind (enter call uniquep) inline
-             (inline-function initial-instruction call enter (make-hash-table :test #'eq) :uniquep uniquep))
+             (inline-function initial-instruction call enter (make-hash-table :test #'eq) :uniquep nil #+(or)uniquep))
            (cleavir-ir:set-predecessors initial-instruction)
            (cleavir-remove-useless-instructions:remove-useless-instructions initial-instruction)))

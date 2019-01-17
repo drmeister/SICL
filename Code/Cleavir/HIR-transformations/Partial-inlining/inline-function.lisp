@@ -41,8 +41,11 @@
   ;; Done!
   (values))
 
+(defvar *original-call-instruction*)
+
 (defmethod inline-function (initial call enter mapping &key uniquep)
   (let* ((*original-enter-instruction* enter)
+         (*original-call-instruction* call)
          (*instruction-mapping* (make-hash-table :test #'eq))
          ;; Used for catch/unwind (local-catch-p)
          (*target-enter-instruction*
