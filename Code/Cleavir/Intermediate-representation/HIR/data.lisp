@@ -55,6 +55,10 @@
   (make-instance 'constant-input
     :value value))
 
+(defgeneric constant-input-p (datum)
+  (:method ((datum t)) nil)
+  (:method ((datum constant-input)) t))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; Datum class LEXICAL-LOCATION.
@@ -76,6 +80,10 @@
 (defun new-temporary (&optional (thing nil thing-p))
   (make-lexical-location (if thing-p (gensym thing) (gensym))))
 
+(defgeneric lexical-location-p (datum)
+  (:method ((datum t)) nil)
+  (:method ((datum lexical-location)) t))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; Datum class VALUES-LOCATION.
@@ -85,6 +93,10 @@
 
 (defun make-values-location ()
   (make-instance 'values-location))
+
+(defgeneric values-location-p (datum)
+  (:method ((datum t)) nil)
+  (:method ((datum values-location)) t))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -117,6 +129,10 @@
   (make-instance 'immediate-input
     :value value))
 
+(defgeneric immediate-input-p (datum)
+  (:method ((datum t)) nil)
+  (:method ((datum immediate-input)) t))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; Datum class LOAD-TIME-VALUE-INPUT.
@@ -129,3 +145,7 @@
   (make-instance 'load-time-value-input
     :form form
     :read-only-p read-only-p))
+
+(defgeneric load-time-value-input-p (datum)
+  (:method ((datum t)) nil)
+  (:method ((datum load-time-value-input)) t))

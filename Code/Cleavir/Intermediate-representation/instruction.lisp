@@ -128,3 +128,7 @@
 
 (defun clone-instruction (instruction &rest initargs &key &allow-other-keys)
   (apply #'make-instance (class-of instruction) (append initargs (clone-initargs instruction))))
+
+(defgeneric instruction-p (instruction)
+  (:method ((instruction t)) nil)
+  (:method ((instruction instruction)) t))

@@ -95,3 +95,7 @@
   (list :required (required-types instruction)
         :optional (optional-types instruction)
         :rest (rest-type instruction)))
+
+(defgeneric the-values-instruction-p (instruction)
+  (:method ((instruction t)) nil)
+  (:method ((instruction the-values-instruction)) t))

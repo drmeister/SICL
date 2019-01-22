@@ -5,17 +5,17 @@
   (:export
    #:datum
    #:replace-datum
-   #:immediate-input #:make-immediate-input
-   #:load-time-value-input #:make-load-time-value-input
+   #:immediate-input #:make-immediate-input #:immediate-input-p
+   #:load-time-value-input #:make-load-time-value-input #:load-time-value-input-p
    #:form #:read-only-p
    #:word-input
    #:float-location #:make-float-location #:size
-   #:constant-input #:make-constant-input
+   #:constant-input #:make-constant-input #:constant-input-p
    #:value
-   #:lexical-location #:make-lexical-location
+   #:lexical-location #:make-lexical-location #:lexical-location-p
    #:new-temporary
    #:name
-   #:values-location #:make-values-location
+   #:values-location #:make-values-location #:values-location-p
    #:variable-p
    #:external-input #:make-external-input
    #:register-location
@@ -26,7 +26,7 @@
    #:delete-instruction #:bypass-instruction
    #:reinitialize-data
    #:defining-instructions #:using-instructions
-   #:instruction
+   #:instruction #:instruction-p
    #:clone-instruction #:clone-initargs
    #:no-successors-mixin
    #:one-successor-mixin
@@ -41,25 +41,25 @@
    #:origin #:*origin*
    #:symbol-value-instruction #:make-symbol-value-instruction
    #:set-symbol-value-instruction #:make-set-symbol-value-instruction
-   #:fdefinition-instruction #:make-fdefinition-instruction
-   #:enter-instruction #:make-enter-instruction
+   #:fdefinition-instruction #:make-fdefinition-instruction #:fdefinition-instruction-p
+   #:enter-instruction #:make-enter-instruction #:enter-instruction-p
    #:lambda-list #:closure-size
    #:static-environment #:parameters
-   #:top-level-enter-instruction #:make-top-level-enter-instruction #:forms
+   #:top-level-enter-instruction #:make-top-level-enter-instruction #:top-level-enter-instruction-p #:forms
    #:nop-instruction #:make-nop-instruction
    #:unreachable-instruction #:make-unreachable-instruction
    #:assignment-instruction #:make-assignment-instruction
-   #:funcall-instruction #:make-funcall-instruction
+   #:funcall-instruction #:make-funcall-instruction #:funcall-instruction-p
    #:funcall-no-return-instruction #:make-funcall-no-return-instruction
    #:tailcall-instruction #:make-tailcall-instruction
    #:return-instruction #:make-return-instruction
-   #:enclose-instruction #:make-enclose-instruction #:code
-   #:typeq-instruction #:make-typeq-instruction #:value-type
-   #:the-instruction #:make-the-instruction
+   #:enclose-instruction #:make-enclose-instruction #:enclose-instruction-p #:code
+   #:typeq-instruction #:make-typeq-instruction #:typeq-instruction-p #:value-type 
+   #:the-instruction #:make-the-instruction #:the-instruction-p
    #:dynamic-allocation-instruction #:make-dynamic-allocation-instruction
-   #:the-values-instruction #:make-the-values-instruction
+   #:the-values-instruction #:make-the-values-instruction #:the-values-instruction-p
    #:required-types #:optional-types #:rest-type
-   #:catch-instruction #:make-catch-instruction
+   #:catch-instruction #:make-catch-instruction #:catch-instruction-p
    #:unwind-instruction #:make-unwind-instruction #:destination
    #:eq-instruction #:make-eq-instruction
    #:consp-instruction #:make-consp-instruction

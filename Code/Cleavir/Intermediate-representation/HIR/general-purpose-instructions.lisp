@@ -31,6 +31,10 @@
 (defmethod clone-initargs append ((instruction top-level-enter-instruction))
   (list :forms (forms instruction)))
 
+(defgeneric top-level-enter-instruction-p (instruction)
+  (:method ((instruction t)) nil)
+  (:method ((instruction top-level-enter-instruction)) t))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; Instruction NOP-INSTRUCTION.
@@ -80,6 +84,10 @@
     :inputs inputs
     :outputs outputs
     :successors (if successor-p (list successor) '())))
+
+(defgeneric funcall-instruction-p (instruction)
+  (:method ((instruction t)) nil)
+  (:method ((instruction funcall-instruction)) t))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -148,6 +156,10 @@
 (defmethod clone-initargs append ((instruction typeq-instruction))
   (list :value-type (value-type instruction)))
 
+(defgeneric typeq-instruction-p (instruction)
+  (:method ((instruction t)) nil)
+  (:method ((instruction typeq-instruction)) t))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; Instruction THE-INSTRUCTION.
@@ -169,6 +181,10 @@
 
 (defmethod clone-initargs append ((instruction the-instruction))
   (list :value-type (value-type instruction)))
+
+(defgeneric the-instruction-p (instruction)
+  (:method ((instruction t)) nil)
+  (:method ((instruction the-instruction)) t))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -220,6 +236,10 @@
   (make-instance 'catch-instruction
     :outputs (list output)
     :successors successors))
+
+(defgeneric catch-instruction-p (instruction)
+  (:method ((instruction t)) nil)
+  (:method ((instruction catch-instruction)) t))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -349,6 +369,10 @@
     :inputs (list input)
     :outputs (list output)
     :successors (if successor-p (list successor) '())))
+
+(defgeneric fdefinition-instruction-p (instruction)
+  (:method ((instruction t)) nil)
+  (:method ((instruction fdefinition-instruction)) t))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;

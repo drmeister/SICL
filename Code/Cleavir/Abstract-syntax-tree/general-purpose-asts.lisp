@@ -506,6 +506,10 @@
   (declare (ignorable ast))
   '())
 
+(defgeneric tag-ast-p (instruction)
+  (:method ((instruction t)) nil)
+  (:method ((instruction tag-ast)) t))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; Class TAGBODY-AST.

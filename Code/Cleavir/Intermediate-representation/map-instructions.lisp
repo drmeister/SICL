@@ -29,7 +29,7 @@
       (loop until (null instructions-to-process)
 	    do (let ((instruction (pop instructions-to-process)))
 		 (funcall function instruction)
-		 (when (typep instruction 'enclose-instruction)
+		 (when (enclose-instruction-p instruction)
 		   ;; When the instruction is an ENCLOSE-INSTRUCTION,
 		   ;; we must also account for the CODE slot of the
 		   ;; instruction, because it contains the
@@ -94,10 +94,10 @@
       (register-if-unvisited initial-instruction)
       (loop until (null instructions-to-process)
 	    do (let ((instruction (pop instructions-to-process)))
-                 (when (typep instruction 'enter-instruction)
+                 (when (enter-instruction-p instruction)
                    (setf current-owner instruction))
 		 (funcall function instruction current-owner)
-		 (when (typep instruction 'enclose-instruction)
+		 (when (enclose-instruction-p instruction)
 		   (let ((code (code instruction)))
 		     (if (null instructions-to-process)
 			 (setf instructions-to-process (list code))

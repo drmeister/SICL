@@ -25,7 +25,7 @@
    #:function-ast #:make-function-ast #:lambda-list
    #:top-level-function-ast #:make-top-level-function-ast #:forms
    #:required-only-p #:required #:argparse-ast #:body-ast
-   #:go-ast #:make-go-ast #:tag-ast
+   #:go-ast #:make-go-ast #:tag-ast #:tag-ast-p
    #:if-ast #:make-if-ast #:test-ast #:then-ast #:else-ast
    #:multiple-value-call-ast #:make-multiple-value-call-ast
    #:function-form-ast

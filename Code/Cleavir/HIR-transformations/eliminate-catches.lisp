@@ -8,7 +8,7 @@
   (let ((death nil))
     (cleavir-ir:map-instructions-arbitrary-order
      (lambda (instruction)
-       (when (typep instruction 'cleavir-ir:catch-instruction)
+       (when (cleavir-ir:catch-instruction-p instruction)
          (let ((cont (first (cleavir-ir:outputs instruction))))
            (when (null (cleavir-ir:using-instructions cont))
              (push instruction death)))))

@@ -34,7 +34,7 @@
        (lambda (instruction owner)
 	 (cleavir-meter:increment-size m)
 	 (loop for datum in (data instruction)
-	       do (when (typep datum 'cleavir-ir:lexical-location)
+	       do (when (cleavir-ir:lexical-location-p datum)
 		    (unless (eq owner (gethash datum location-owners))
                       (pushnew datum result)))))
        initial-instruction)
@@ -195,7 +195,7 @@
     ;; CATCH has two successors and one output. There are other instructions
     ;; like that, but CATCH is the only one whose output is closed over in
     ;; normal code. Due to its unusual control flow, we special case it here.
-    (if (typep instruction 'cleavir-ir:catch-instruction)
+    (if (cleavir-ir:catch-instruction-p instruction)
         (cleavir-ir:insert-instruction-between
          (cleavir-ir:make-write-cell-instruction cloc d)
          instruction
