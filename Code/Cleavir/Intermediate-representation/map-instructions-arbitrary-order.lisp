@@ -18,7 +18,7 @@
 
 (defun map-instructions-arbitrary-order (function initial-instruction)
   (cleavir-meter:with-meter (m *map-instructions-arbitrary-order-meter*)
-    (let ((visited-instructions (make-hash-table :test #'eq))
+    (let ((visited-instructions (make-hash-table :test #'eq :size 1024 :rehash-size 4.0))
 	  (instructions-to-process '()))
       (flet ((register-if-unvisited (instruction)
 	       (unless (gethash instruction visited-instructions)

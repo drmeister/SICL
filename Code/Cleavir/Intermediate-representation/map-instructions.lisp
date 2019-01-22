@@ -19,7 +19,7 @@
 ;;; graph is big, then the control stack can easily be exhausted.
 
 (defun map-instructions (function initial-instruction)
-  (let ((visited-instructions (make-hash-table :test #'eq))
+  (let ((visited-instructions (make-hash-table :test #'eq :size 1024 :rehash-size 4.0))
 	(instructions-to-process '()))
     (flet ((register-if-unvisited (instruction)
 	     (unless (gethash instruction visited-instructions)
@@ -84,7 +84,7 @@
 ;;; a time, tracking one owner.
 
 (defun map-instructions-with-owner (function initial-instruction)
-  (let ((visited-instructions (make-hash-table :test #'eq))
+  (let ((visited-instructions (make-hash-table :test #'eq :size 1024 :rehash-size 4.0))
 	(instructions-to-process '())
         (current-owner initial-instruction))
     (flet ((register-if-unvisited (instruction)
