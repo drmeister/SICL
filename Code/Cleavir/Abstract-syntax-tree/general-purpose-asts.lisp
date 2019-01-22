@@ -277,6 +277,10 @@
 (defmethod children ((ast call-ast))
   (cons (callee-ast ast) (argument-asts ast)))
 
+(defgeneric call-ast-p (ast)
+  (:method ((ast t)) nil)
+  (:method ((ast call-ast)) t))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; Class FUNCTION-AST.
@@ -345,6 +349,10 @@
 			   (t
 			    (list entry))))))
 
+(defgeneric function-ast-p (ast)
+  (:method ((ast t)) nil)
+  (:method ((ast function-ast)) t))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; Class TOP-LEVEL-FUNCTION-AST.
@@ -407,6 +415,10 @@
 
 (defmethod children ((ast block-ast))
   (list (body-ast ast)))
+
+(defgeneric block-ast-p (ast)
+  (:method ((ast t)) nil)
+  (:method ((ast block-ast)) t))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -527,6 +539,10 @@
 
 (defmethod children ((ast tagbody-ast))
   (item-asts ast))
+
+(defgeneric tagbody-ast-p (ast)
+  (:method ((ast t)) nil)
+  (:method ((ast tagbody-ast)) t))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -739,6 +755,10 @@
 (defmethod children ((ast multiple-value-call-ast))
   (cons (function-form-ast ast)
 	(form-asts ast)))
+
+(defgeneric multiple-value-call-ast-p (ast)
+  (:method ((ast t)) nil)
+  (:method ((ast multiple-value-call-ast)) t))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;

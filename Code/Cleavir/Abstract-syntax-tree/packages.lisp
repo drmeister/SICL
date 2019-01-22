@@ -20,14 +20,14 @@
    #:set-symbol-value-ast #:make-set-symbol-value-ast
    #:symbol #:symbol-ast
    #:fdefinition-ast #:make-fdefinition-ast #:info #:name-ast
-   #:call-ast #:make-call-ast #:callee-ast #:argument-asts
-   #:block-ast #:make-block-ast #:body
-   #:function-ast #:make-function-ast #:lambda-list
+   #:call-ast #:make-call-ast #:callee-ast #:argument-asts #:call-ast-p
+   #:block-ast #:make-block-ast #:body #:block-ast-p
+   #:function-ast #:make-function-ast #:lambda-list #:function-ast-p
    #:top-level-function-ast #:make-top-level-function-ast #:forms
    #:required-only-p #:required #:argparse-ast #:body-ast
    #:go-ast #:make-go-ast #:tag-ast #:tag-ast-p
    #:if-ast #:make-if-ast #:test-ast #:then-ast #:else-ast
-   #:multiple-value-call-ast #:make-multiple-value-call-ast
+   #:multiple-value-call-ast #:make-multiple-value-call-ast #:multiple-value-call-ast-p
    #:function-form-ast
    #:values-ast #:make-values-ast
    #:multiple-value-prog1-ast #:make-multiple-value-prog1-ast
@@ -39,7 +39,7 @@
    #:return-from-ast #:make-return-from-ast #:form-ast
    #:setq-ast #:make-setq-ast #:lhs-ast #:value-ast
    #:multiple-value-setq-ast #:make-multiple-value-setq-ast #:lhs-asts
-   #:tagbody-ast #:make-tagbody-ast #:item-asts
+   #:tagbody-ast #:make-tagbody-ast #:item-asts #:tagbody-ast-p
    #:tag-ast #:make-tag-ast #:name
    #:the-ast #:make-the-ast
    #:required-types #:optional-types #:rest-type
