@@ -97,7 +97,8 @@
    (%policy :initform *policy* :initarg :policy :accessor policy)
    (%dynamic-environment :initform *dynamic-environment*
                          :initarg :dynamic-environment :accessor dynamic-environment)
-   (%origin :initform (if (boundp '*origin*) *origin* nil) :initarg :origin :accessor origin)))
+   (%origin :initform (if (boundp '*origin*) *origin* nil) :initarg :origin :accessor origin)
+   #+meister-hack(%touched :initform 0 :accessor touched)))
 
 (defmethod initialize-instance :after ((obj instruction) &key)
   (unless (and (listp (successors obj))

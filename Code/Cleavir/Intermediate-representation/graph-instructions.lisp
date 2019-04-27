@@ -68,6 +68,11 @@
                   (lambda-list instruction)
                   :test #'eq))))
 
+(defgeneric enter-instruction-p (instruction))
+(defmethod enter-instruction-p ((instruction t)) nil)
+(defmethod enter-instruction-p ((instruction enter-instruction)) t)
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; Instruction ENCLOSE-INSTRUCTION.
@@ -84,3 +89,7 @@
 
 (defmethod clone-initargs append ((instruction enclose-instruction))
   (list :code (code instruction)))
+
+(defgeneric enclose-instruction-p (instruction))
+(defmethod enclose-instruction-p ((instruction t)) nil)
+(defmethod enclose-instruction-p ((instruction enclose-instruction)) t)

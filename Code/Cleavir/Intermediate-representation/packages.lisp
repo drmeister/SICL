@@ -27,6 +27,7 @@
    #:reinitialize-data
    #:defining-instructions #:using-instructions
    #:instruction
+   #+meister-hack #:touched
    #:clone-instruction #:clone-initargs
    #:no-successors-mixin
    #:one-successor-mixin
@@ -46,7 +47,7 @@
    #:fdefinition-instruction #:make-fdefinition-instruction
    #:constant-fdefinition-instruction #:make-constant-fdefinition-instruction
    #:constant-symbol-value-instruction #:make-constant-symbol-value-instruction
-   #:enter-instruction #:make-enter-instruction
+   #:enter-instruction #:make-enter-instruction #:enter-instruction-p
    #:lambda-list #:closure-size
    #:static-environment #:dynamic-environment-output #:parameters
    #:top-level-enter-instruction #:make-top-level-enter-instruction #:forms
@@ -57,7 +58,7 @@
    #:funcall-no-return-instruction #:make-funcall-no-return-instruction
    #:tailcall-instruction #:make-tailcall-instruction
    #:return-instruction #:make-return-instruction
-   #:enclose-instruction #:make-enclose-instruction #:code
+   #:enclose-instruction #:make-enclose-instruction #:code #:enclose-instruction-p
    #:typeq-instruction #:make-typeq-instruction #:value-type
    #:the-instruction #:make-the-instruction
    #:dynamic-allocation-instruction #:make-dynamic-allocation-instruction

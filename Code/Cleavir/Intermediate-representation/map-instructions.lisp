@@ -18,6 +18,7 @@
 ;;; implementations can be relatively small, and if the instruction
 ;;; graph is big, then the control stack can easily be exhausted.
 
+#-meister-hack
 (defun map-instructions (function initial-instruction)
   (let ((visited-instructions (make-hash-table :test #'eq))
 	(instructions-to-process '()))
@@ -57,6 +58,10 @@
 		 (loop for successor in (successors instruction)
 		       do (register-if-unvisited successor)))))))
 
+#+meister-hack
+(defun map-instructions (function initial-instruction)
+  (sys:map-instructions function initial-instruction))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; Function MAP-INSTRUCTIONS-WITH-OWNER.
@@ -78,6 +83,7 @@
 ;;; added to the end of the worklist, we can just do one entire function at
 ;;; a time, tracking one owner.
 
+#-meister-hack
 (defun map-instructions-with-owner (function initial-instruction)
   (let ((visited-instructions (make-hash-table :test #'eq))
 	(instructions-to-process '())
@@ -103,3 +109,7 @@
                    (register-last-if-unvisited (code instruction)))
 		 (loop for successor in (successors instruction)
 		       do (register-if-unvisited successor)))))))
+
+#+meister-hack
+(defun map-instructions-with-owner (function initial-instruction)
+  (sys:map-instructions-with-owner function initial-instruction))
